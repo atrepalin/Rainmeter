@@ -1,0 +1,30 @@
+#pragma once
+#include <string>
+#include <d2d1_1.h>
+#include <dwrite_1.h>
+#include <wincodec.h>
+#include <wrl/client.h>
+#include <d3d11.h>
+#include <DXGI1_2.h>
+struct Context
+{
+	Microsoft::WRL::ComPtr<ID3D11Device> D3DDevice;
+	Microsoft::WRL::ComPtr<ID3D11DeviceContext> D3DContext;
+	Microsoft::WRL::ComPtr<ID2D1Device> D2DDevice;
+	Microsoft::WRL::ComPtr<IDXGIDevice1> DxgiDevice;
+	Microsoft::WRL::ComPtr<ID2D1Factory1> D2DFactory;
+	Microsoft::WRL::ComPtr<IDWriteFactory1> DWFactory;
+	Microsoft::WRL::ComPtr<IWICImagingFactory> WICFactory;
+	Microsoft::WRL::ComPtr<ID2D1DeviceContext> Target;
+	Microsoft::WRL::ComPtr<IDXGISwapChain1> SwapChain;
+	Microsoft::WRL::ComPtr<IDXGISurface1> BackBuffer;
+	Microsoft::WRL::ComPtr<ID2D1Bitmap1> TargetBitmap;
+	int W;
+	int H;
+	UINT32 MaxBitmapSize;
+	bool IsDrawing;
+	bool EnableDrawAfterGdi;
+	bool AccurateText;
+	bool TextAntiAliasing;
+	bool CanUseAxisAlignClip;
+};
