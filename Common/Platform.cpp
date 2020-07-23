@@ -1,0 +1,133 @@
+/* Copyright (C) 2013 Rainmeter Project Developers
+ *
+ * This Source Code Form is subject to the terms of the GNU General Public
+ * License; either version 2 of the License, or (at your option) any later
+ * version. If a copy of the GPL was not distributed with this file, You can
+ * obtain one at <https://www.gnu.org/licenses/gpl-2.0.html>. */
+
+#include "StdAfx.h"
+#include "Platform.h"
+
+namespace Platform {
+
+LPCWSTR GetPlatformName()
+{
+	static std::wstring s_Name = []() -> std::wstring
+	{
+		const bool isServer = IsWindowsServer();
+
+		// Note: Place newer versions at the top.
+		const WCHAR* version =
+			IsWindowsVersionOrGreater(10, 0, 17623) && isServer ? L"2019" :
+			IsWindows10OrGreater() ? (isServer ? L"2016" : L"10") :
+			IsWindows8Point1OrGreater() ? (isServer ? L"2012 R2" : L"8.1") :
+			IsWindows8OrGreater() ? (isServer ? L"2012" : L"8") :
+			IsWindows7OrGreater() ? (isServer ? L"2008 R2" : L"7") :
+			nullptr;
+		if (version)
+		{
+			std::wstring name = L"Windows ";
+			name += isServer ? L"Server " : L"";
+			name += version;
+			return name;
+		}
+
+		return L"Unknown";
+	} ();
+	return s_Name.c_str();
+}
+
+std::wstring GetPlatformFriendlyName()
+{
+	std::wstring name;
+
+	WCHAR buffer[256];
+	DWORD size = _countof(buffer);
+
+	HKEY hKey;
+	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS)
+	{
+		if (RegQueryValueEx(hKey, L"ProductName", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+		{
+			name += buffer;
+
+			// For Windows 10 (and above?), use the "ReleaseId" as part of the version number.
+			// (ie. 1507, 1511, 1607, 1703, 1709, 1803 ...)
+			size = _countof(buffer);
+			DWORD major = 0;
+
+			if (RegQueryValueEx(hKey, L"CurrentMajorVersionNumber", nullptr, nullptr, (LPBYTE)&major, (LPDWORD)&size) == ERROR_SUCCESS)
+			{
+				if (major >= 10)
+				{
+					size = _countof(buffer);
+					if (RegQueryValueEx(hKey, L"ReleaseId", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+					{
+						name += L' ';
+						name += buffer;
+					}
+				}
+			}
+
+			name += Is64BitWindows() ? L" 64-bit" : L" 32-bit";
+
+			size = _countof(buffer);
+			if (RegQueryValueEx(hKey, L"CurrentBuildNumber", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS ||
+				RegQueryValueEx(hKey, L"CurrentBuild", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+			{
+				name += L" (build ";
+				name += buffer;
+				name += L')';
+			}
+
+			size = _countof(buffer);
+			if (RegQueryValueEx(hKey, L"CSDVersion", nullptr, nullptr, (LPBYTE)buffer, (LPDWORD)&size) == ERROR_SUCCESS)
+			{
+				name += L' ';
+				name += buffer;
+			}
+		}
+
+		RegCloseKey(hKey);
+	}
+	else
+	{
+		name = L"Windows version unknown";
+	}
+
+	return name;
+}
+
+std::wstring GetPlatformUserLanguage()
+{
+	LANGID id = GetUserDefaultUILanguage();
+	LCID lcid = MAKELCID(id, SORT_DEFAULT);
+	WCHAR buffer[LOCALE_NAME_MAX_LENGTH];
+	if (GetLocaleInfo(lcid, LOCALE_SENGLISHLANGUAGENAME, buffer, _countof(buffer)) == 0)
+	{
+		_snwprintf_s(buffer, _TRUNCATE, L"%s", L"<error>");
+	}
+	std::wstring language = buffer;
+	return language;
+}
+
+/*
+** Returns |true| if running on 64-bit Windows.
+*/
+bool Is64BitWindows()
+{
+#if _WIN64
+	return true;
+#endif
+
+	auto isWow64Process = (decltype(IsWow64Process)*)GetProcAddress(GetModuleHandle(L"kernel32"), "IsWow64Process");
+	if (isWow64Process)
+	{
+		BOOL isWow64 = FALSE;
+		return isWow64Process(GetCurrentProcess(), &isWow64) && isWow64;
+	}
+
+	return false;
+}
+
+}  // namespace Platform
